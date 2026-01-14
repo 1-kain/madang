@@ -1,13 +1,25 @@
 @extends('layout.app')
 
 @section('content')
-    <div class="bg-white p-6 rounded shadow">
-        <h2 class="text-2xl font-bold mb-4">Dashboard: {{ $gudang->nama_gudang }}</h2>
-        <p class="text-gray-600">
-            Selamat datang di panel pengelolaan gudang. 
-            <br>
-            (Area ini siap untuk diisi dengan grafik atau ringkasan stok nanti).
-        </p>
+    <div class="bg-white p-6 rounded shadow flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        
+        <div>
+            <h2 class="text-2xl font-bold mb-2 text-gray-800">Dashboard: {{ $gudang->nama_gudang }}</h2>
+            <p class="text-gray-600 text-sm">
+                Panel kontrol stok dan riwayat transaksi gudang.
+            </p>
+        </div>
+
+        <div class="flex gap-2"> <a href="{{ route('opname.index', $gudang->id) }}" class="inline-flex items-center px-4 py-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 text-sm font-bold rounded shadow-sm transition">
+         <i class="fas fa-history mr-2 text-gray-500"></i> 
+            Riwayat Stok Opname
+            </a>
+
+            <a href="{{ route('opname.create', $gudang->id) }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded shadow transition">
+                <i class="fas fa-clipboard-check mr-2"></i> 
+                Mulai Stok Opname
+            </a>
+        </div>
     </div>
 
     <div class="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -79,9 +91,9 @@
                     </td>
 
                     <td class="px-6 py-4 text-center">
-                        <span class="font-mono bg-gray-100 text-gray-800 px-2 py-1 rounded border border-gray-300 text-xs">
-                            {{ $h->barang->stok }}
-                        </span>
+                            <span class="font-mono font-bold text-gray-700 bg-gray-100 px-2 py-1 rounded">
+                                {{ $h->stok_history }}
+                            </span>
                     </td>
                 </tr>
                 @empty

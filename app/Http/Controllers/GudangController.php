@@ -3,9 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Gudang;
-use App\Models\StokMasuk;
-use App\Models\StokKeluar;
 use Illuminate\Http\Request;
+use App\Models\Transaksi;
 
 class GudangController extends Controller
 {
@@ -29,44 +28,22 @@ class GudangController extends Controller
     }
 
     public function dashboard(Gudang $gudang)
-{
-    // 1. Ambil data Stok Masuk (misal 10 terakhir)
-    $masuk = StokMasuk::with('barang')
-                ->where('gudang_id', $gudang->id)
-                ->latest()
-                ->take(10)
-                ->get()
-                ->map(function ($item) {
-                    // Kita format datanya agar seragam dengan stok keluar
-                    return (object) [
-                        'jenis' => 'masuk',
-                        'barang' => $item->barang,
-                        'qty' => $item->jumlah_masuk, // Sesuaikan dengan nama kolom di DB kamu (misal: qty, jumlah, dll)
-                        'tanggal' => $item->created_at, // Sesuaikan jika ada kolom tanggal_masuk
-                    ];
-                });
+    {
+        // === LOGIKA BARU MENGGUNAKAN TABEL TRANSAKSI ===
+        
+        // Ambil data riwayat gabungan (Masuk & Keluar) dari tabel 'transaksis'
+        $history = Transaksi::with('barang')
+            ->whereHas('barang', function ($query) use ($gudang) {
+                $query->where('gudang_id', $gudang->id);
+            })
+            ->latest('tanggal')     // Urutkan tanggal terbaru
+            ->latest('created_at')  // Backup sort
+            ->take(10)              // Ambil 10 saja
+            ->get();
 
-    // 2. Ambil data Stok Keluar (misal 10 terakhir)
-    $keluar = StokKeluar::with('barang')
-                ->where('gudang_id', $gudang->id)
-                ->latest()
-                ->take(10)
-                ->get()
-                ->map(function ($item) {
-                    return (object) [
-                        'jenis' => 'keluar',
-                        'barang' => $item->barang,
-                        'qty' => $item->jumlah_keluar, // Sesuaikan dengan nama kolom di DB kamu
-                        'tanggal' => $item->created_at, // Sesuaikan jika ada kolom tanggal_keluar
-                    ];
-                });
-
-    // 3. Gabungkan kedua collection, urutkan tanggal descending, ambil 10 teratas
-    $history = $masuk->merge($keluar)->sortByDesc('tanggal')->take(10);
-
-    // Kirim data ke view
-    return view('gudang.dashboard', compact('gudang', 'history'));
-}
+        // Kita kirim variabel '$history' ke view, BUKAN '$masuk' atau '$keluar' lagi
+        return view('gudang.dashboard', compact('gudang', 'history'));
+    }
 
 
     public function destroy(Gudang $gudang)

@@ -72,6 +72,7 @@ class TransaksiController extends Controller
     }
 
     // Simpan Transaksi (Bisa dari Manual atau QR Batch)
+    // Simpan Transaksi (Bisa dari Manual atau QR Batch)
     public function store(Request $request, Gudang $gudang)
     {
         $request->validate([
@@ -92,17 +93,22 @@ class TransaksiController extends Controller
             return back()->withErrors(['msg' => 'Barang tidak ditemukan.']);
         }
 
-        // === LOGIKA BARU: CEGAH STOK MINUS ===
-        if ($request->jenis == 'keluar') {
-            if ($barang->stok_sekarang < $request->qty) {
+        // 2. Ambil Stok Awal & Hitung Stok Akhir
+        $stokAwal = $barang->stok_sekarang ?? 0;
+        
+        if ($request->jenis == 'masuk') {
+            $stokAkhir = $stokAwal + $request->qty;
+        } else {
+            // Cek Stok Cukup (Khusus Keluar)
+            if ($stokAwal < $request->qty) {
                 return back()->withErrors([
-                    'msg' => "Gagal! Stok tidak mencukupi. Sisa stok: {$barang->stok_sekarang}, diminta: {$request->qty}"
+                    'msg' => "Gagal! Stok tidak mencukupi. Sisa stok: {$stokAwal}, diminta: {$request->qty}"
                 ])->withInput();
             }
+            $stokAkhir = $stokAwal - $request->qty;
         }
-        // =====================================
 
-        // Simpan Transaksi
+        // 3. Simpan Transaksi dengan Snapshot 'stok_history'
         $transaksi = new Transaksi();
         $transaksi->barang_id = $barang->id;
         $transaksi->jenis = $request->jenis;
@@ -110,25 +116,28 @@ class TransaksiController extends Controller
         $transaksi->qty = $request->qty;
         $transaksi->satuan = $request->satuan ?? $barang->satuan;
         $transaksi->keterangan = $request->keterangan;
+        
+        // --- INI BAGIAN PENTINGNYA ---
+        $transaksi->stok_history = $stokAkhir; 
+        // -----------------------------
+        
         $transaksi->save();
 
-        // Update Stok
-        if ($request->jenis == 'masuk') {
-            $barang->increment('stok_sekarang', $request->qty);
-        } else {
-            $barang->decrement('stok_sekarang', $request->qty);
-        }
+        // 4. Update Stok Master Barang ke angka terbaru
+        $barang->stok_sekarang = $stokAkhir;
+        $barang->save();
 
         return back()->with('success', 'Transaksi berhasil disimpan!');
     }
 
     // API Endpoint untuk menangani Scan QR (Batch)
+   // API Endpoint untuk menangani Scan QR (Batch)
    public function handleScanQr(Request $request, Gudang $gudang)
     {
         $items = $request->input('items');
         $jenis = $request->input('jenis'); 
 
-        // Gunakan DB Transaction agar aman (Semua sukses atau batal semua)
+        // Gunakan DB Transaction agar aman
         try {
             DB::beginTransaction();
 
@@ -137,36 +146,40 @@ class TransaksiController extends Controller
                                 ->where('kode_barang', $item['kode'])->first();
 
                 if ($barang) {
+                    $stokAwal = $barang->stok_sekarang ?? 0;
                     
-                    // === LOGIKA BARU: CEGAH STOK MINUS DI QR ===
-                    if ($jenis == 'keluar' && $barang->stok_sekarang < $item['qty']) {
-                        // Batalkan semua proses jika ada 1 barang yang kurang
-                        DB::rollBack(); 
-                        return response()->json([
-                            'status' => 'error', 
-                            'message' => "Gagal! Stok {$barang->nama_barang} (Kode: {$item['kode']}) tidak cukup. Sisa: {$barang->stok_sekarang}"
-                        ], 400); // 400 Bad Request
+                    // Hitung Stok Akhir & Validasi
+                    if ($jenis == 'masuk') {
+                        $stokAkhir = $stokAwal + $item['qty'];
+                    } else {
+                        // Cek Stok Minus
+                        if ($stokAwal < $item['qty']) {
+                            DB::rollBack(); 
+                            return response()->json([
+                                'status' => 'error', 
+                                'message' => "Gagal! Stok {$barang->nama_barang} (Kode: {$item['kode']}) tidak cukup. Sisa: {$stokAwal}"
+                            ], 400); 
+                        }
+                        $stokAkhir = $stokAwal - $item['qty'];
                     }
-                    // ===========================================
 
+                    // Simpan Transaksi dengan stok_history
                     Transaksi::create([
                         'barang_id' => $barang->id,
                         'jenis' => $jenis,
                         'tanggal' => now(),
                         'qty' => $item['qty'],
                         'satuan' => $barang->satuan,
-                        'keterangan' => 'Scan QR Batch'
+                        'keterangan' => 'Scan QR Batch',
+                        'stok_history' => $stokAkhir // <--- Tambahkan ini
                     ]);
 
-                    if ($jenis == 'masuk') {
-                        $barang->increment('stok_sekarang', $item['qty']);
-                    } else {
-                        $barang->decrement('stok_sekarang', $item['qty']);
-                    }
+                    // Update Master Barang
+                    $barang->update(['stok_sekarang' => $stokAkhir]);
                 }
             }
 
-            DB::commit(); // Simpan permanen jika tidak ada error
+            DB::commit(); 
             return response()->json(['status' => 'success', 'message' => 'Data Scan berhasil disimpan']);
 
         } catch (\Exception $e) {
