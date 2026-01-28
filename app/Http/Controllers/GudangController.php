@@ -45,6 +45,20 @@ class GudangController extends Controller
         return view('gudang.dashboard', compact('gudang', 'history'));
     }
 
+    public function update(Request $request, Gudang $gudang)
+    {
+        $request->validate([
+            'nama_gudang' => 'required'
+        ]);
+
+        $gudang->update([
+            'nama_gudang' => $request->nama_gudang,
+            'lokasi' => $request->lokasi
+        ]);
+
+        return redirect()->back()->with('success', 'Data gudang berhasil diperbarui');
+    }
+
 
     public function destroy(Gudang $gudang)
     {

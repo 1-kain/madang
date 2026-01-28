@@ -1,102 +1,130 @@
 @extends('layout.app')
 
 @section('content')
-<div class="flex justify-between items-center mb-6">
+
+<div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
     <h2 class="text-2xl font-bold">Data Barang</h2>
-    <div class="flex gap-2">
-        <button onclick="openModal('modalKategori')" class="bg-purple-600 text-white px-4 py-2 rounded shadow hover:bg-purple-700 transition">
-            <i class="fas fa-plus mr-2"></i> Tambah Kategori
-        </button>
-        <button onclick="openModal('modalBarang')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition">
-            + Tambah Barang
-        </button>
+    
+    <div class="flex flex-col md:flex-row gap-2 items-center w-full md:w-auto">
+        
+        <form action="{{ route('barangs.index', $gudang->id) }}" method="GET" class="relative w-full md:w-64">
+            <input type="text" 
+                   name="search" 
+                   value="{{ request('search') }}"
+                   placeholder="Cari Kode / Nama..." 
+                   class="w-full border border-gray-300 rounded pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            
+            <button type="submit" class="absolute right-0 top-0 h-full px-3 text-gray-500 hover:text-blue-600">
+                <i class="fas fa-search"></i>
+            </button>
+        </form>
+        <div class="flex gap-2 w-full md:w-auto justify-end">
+            <button onclick="openModal('modalKategori')" class="bg-purple-600 text-white px-4 py-2 rounded shadow hover:bg-purple-700 transition text-sm whitespace-nowrap">
+                <i class="fas fa-plus mr-1"></i> Kategori
+            </button>
+            <button onclick="openModal('modalBarang')" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition text-sm whitespace-nowrap">
+                + Barang
+            </button>
+        </div>
     </div>
 </div>
 
-<div class="bg-white rounded shadow overflow-x-auto">
-    <table class="w-full text-left border-collapse">
-        <thead class="bg-slate-100 text-slate-600 uppercase text-sm font-bold">
-            <tr>
-                <th class="p-3 border-b text-center">Foto</th>
-                <th class="p-3 border-b">Kode</th>
-                <th class="p-3 border-b">Nama Barang</th>
-                <th class="p-3 border-b">Stok</th>
-                <th class="p-3 border-b">Satuan</th>
-                
-                @foreach($kategoris as $k)
-                <th class="p-3 border-b text-center min-w-[120px] bg-slate-100 border-l border-slate-200 group relative">
-                    <div class="flex justify-between items-center gap-2">
-                        <span class="font-bold text-slate-700 uppercase text-xs w-full">
-                            {{ $k->nama_kategori }}
+<div class="bg-white rounded shadow overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead class="bg-slate-100 text-slate-600 uppercase text-sm font-bold">
+                <tr>
+                    <th class="p-3 border-b text-center">Foto</th>
+                    <th class="p-3 border-b">Kode</th>
+                    <th class="p-3 border-b">Nama Barang</th>
+                    <th class="p-3 border-b">Stok</th>
+                    <th class="p-3 border-b">Satuan</th>
+                    
+                    @foreach($kategoris as $k)
+                    <th class="p-3 border-b text-center min-w-[120px] bg-slate-100 border-l border-slate-200 group relative">
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="font-bold text-slate-700 uppercase text-xs w-full">
+                                {{ $k->nama_kategori }}
+                            </span>
+                            <form action="{{ route('kategori-atribut.destroy', [$gudang->id, $k->id]) }}" 
+                                  method="POST" 
+                                  onsubmit="return confirm('Yakin ingin menghapus kolom {{ $k->nama_kategori }}? Data atribut ini pada semua barang akan ikut hilang/tersembunyi.')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-gray-400 hover:text-red-600 transition duration-200" title="Hapus Kolom Ini">
+                                    <i class="fas fa-trash-alt text-xs"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </th>
+                    @endforeach
+                    
+                    <th class="p-3 border-b">QR Code</th>
+                    <th class="p-3 border-b">Aksi</th>
+                </tr>
+            </thead>
+            <tbody class="text-sm">
+                @forelse($barangs as $item)
+                <tr class="hover:bg-gray-50 border-b">
+                    <td class="p-3 text-center">
+                        @if($item->gambar)
+                            <img src="{{ asset('storage/' . $item->gambar) }}" class="h-12 w-12 object-cover rounded shadow mx-auto" alt="Produk">
+                        @else
+                            <div class="h-12 w-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 mx-auto">
+                                <i class="fas fa-image"></i>
+                            </div>
+                        @endif
+                    </td>
+                    <td class="p-3 font-mono font-bold">{{ $item->kode_barang }}</td>
+                    <td class="p-3">{{ $item->nama_barang }}</td>
+                    <td class="p-3">
+                        <span class="px-2 py-1 rounded {{ $item->stok_sekarang > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                            {{ $item->stok_sekarang }}
                         </span>
-                        <form action="{{ route('kategori-atribut.destroy', [$gudang->id, $k->id]) }}" 
-                              method="POST" 
-                              onsubmit="return confirm('Yakin ingin menghapus kolom {{ $k->nama_kategori }}? Data atribut ini pada semua barang akan ikut hilang/tersembunyi.')">
+                    </td>
+                    <td class="p-3">{{ $item->satuan }}</td>
+                    
+                    @foreach($kategoris as $k)
+                        <td class="p-3 text-gray-500">
+                            {{ $item->atribut_tambahan[$k->nama_kategori] ?? '-' }}
+                        </td>
+                    @endforeach
+
+                    <td class="p-3">
+                        @if($item->has_qr)
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=50x50&data={{ $item->kode_barang }}" alt="QR">
+                        @else
+                            <span class="text-gray-400 text-xs">No QR</span>
+                        @endif
+                    </td>
+                    <td class="p-3 flex gap-2">
+                        <a href="{{ route('barangs.edit', [$gudang->id, $item->id]) }}" class="text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded text-xs shadow">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <form action="{{ route('barangs.destroy', [$gudang->id, $item->id]) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus barang ini? Data stok dan history juga akan terhapus!');">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="text-gray-400 hover:text-red-600 transition duration-200" title="Hapus Kolom Ini">
-                                <i class="fas fa-trash-alt text-xs"></i>
+                            <button type="submit" class="text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs shadow">
+                                <i class="fas fa-trash"></i> Hapus
                             </button>
                         </form>
-                    </div>
-                </th>
-                @endforeach
-                
-                <th class="p-3 border-b">QR Code</th>
-                <th class="p-3 border-b">Aksi</th>
-            </tr>
-        </thead>
-        <tbody class="text-sm">
-            @foreach($barangs as $item)
-            <tr class="hover:bg-gray-50 border-b">
-                <td class="p-3 text-center">
-                    @if($item->gambar)
-                        <img src="{{ asset('storage/' . $item->gambar) }}" class="h-12 w-12 object-cover rounded shadow mx-auto" alt="Produk">
-                    @else
-                        <div class="h-12 w-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 mx-auto">
-                            <i class="fas fa-image"></i>
-                        </div>
-                    @endif
-                </td>
-                <td class="p-3 font-mono font-bold">{{ $item->kode_barang }}</td>
-                <td class="p-3">{{ $item->nama_barang }}</td>
-                <td class="p-3">
-                    <span class="px-2 py-1 rounded {{ $item->stok_sekarang > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                        {{ $item->stok_sekarang }}
-                    </span>
-                </td>
-                <td class="p-3">{{ $item->satuan }}</td>
-                
-                @foreach($kategoris as $k)
-                    <td class="p-3 text-gray-500">
-                        {{ $item->atribut_tambahan[$k->nama_kategori] ?? '-' }}
                     </td>
-                @endforeach
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="100%" class="p-6 text-center text-gray-500">
+                        Tidak ada data barang ditemukan.
+                    </td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 
-                <td class="p-3">
-                    @if($item->has_qr)
-                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=50x50&data={{ $item->kode_barang }}" alt="QR">
-                    @else
-                        <span class="text-gray-400 text-xs">No QR</span>
-                    @endif
-                </td>
-                <td class="p-3 flex gap-2">
-                    <a href="{{ route('barangs.edit', [$gudang->id, $item->id]) }}" class="text-white bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded text-xs shadow">
-                        <i class="fas fa-edit"></i> Edit
-                    </a>
-                    <form action="{{ route('barangs.destroy', [$gudang->id, $item->id]) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus barang ini? Data stok dan history juga akan terhapus!');">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs shadow">
-                            <i class="fas fa-trash"></i> Hapus
-                        </button>
-                    </form>
-                </td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
-</div>
+    <div class="px-6 py-4 border-t border-gray-100">
+        {{ $barangs->appends(request()->query())->links() }}
+    </div>
+    </div>
 
 <div id="modalBarang" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
     <div class="bg-white w-full max-w-lg p-6 rounded shadow-lg max-h-screen overflow-y-auto relative animate-fade-in-down">
@@ -191,18 +219,14 @@
 </div>
 
 <script>
-    // Fungsi untuk membuka modal
     function openModal(modalId) {
         document.getElementById(modalId).classList.remove('hidden');
     }
 
-    // Fungsi untuk menutup modal
     function closeModal(modalId) {
         document.getElementById(modalId).classList.add('hidden');
     }
 
-    // Menutup modal jika area gelap di luar kotak putih diklik
-    // Kita gunakan addEventListener agar tidak bentrok dengan script lain
     window.addEventListener('click', function(event) {
         const modalKategori = document.getElementById('modalKategori');
         const modalBarang = document.getElementById('modalBarang');
@@ -215,7 +239,6 @@
         }
     });
 
-    // Menutup modal dengan tombol ESC
     window.addEventListener('keydown', function(event) {
         if (event.key === "Escape") {
             closeModal('modalKategori');

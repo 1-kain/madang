@@ -11,14 +11,30 @@ use Illuminate\Support\Facades\Storage;
 
 class BarangController extends Controller
 {
-    public function index(Gudang $gudang)
-    {
-        // Ambil barang beserta atribut dinamisnya
-        $barangs = $gudang->barangs; 
-        $kategoris = KategoriAtribut::where('gudang_id', $gudang->id)->get();
-        
-        return view('barang.index', compact('gudang', 'barangs', 'kategoris'));
+    public function index(Request $request, Gudang $gudang)
+{
+    // 1. Query Dasar
+    $query = Barang::where('gudang_id', $gudang->id);
+
+    // 2. Logika Pencarian
+    if ($request->has('search') && $request->search != '') {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('nama_barang', 'LIKE', '%' . $search . '%')
+              ->orWhere('kode_barang', 'LIKE', '%' . $search . '%');
+        });
     }
+
+    // 3. Ambil data barang (Pagination)
+    $barangs = $query->latest()->paginate(10);
+
+    // 4. AMBIL DATA KATEGORI (Ini yang hilang sebelumnya!)
+    // Tanpa baris ini, View akan error "Undefined variable $kategoris"
+    $kategoris = KategoriAtribut::where('gudang_id', $gudang->id)->get(); // <--- PENTING
+
+    // 5. Kirim ke View (Perhatikan bagian compact)
+    return view('barang.index', compact('gudang', 'barangs', 'kategoris')); 
+}
 
     public function store(Request $request, Gudang $gudang)
     {
